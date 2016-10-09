@@ -13,6 +13,7 @@ Portability : Not portable
 module Servant.DB.PostgreSQL.HasDB(
     deriveDB
   , HasDB(..)
+  , module Reexport
   ) where
 
 import           Data.Monoid
@@ -23,6 +24,8 @@ import           GHC.TypeLits
 import           Servant.API
 import           Servant.API.DB
 import           Servant.DB.PostgreSQL.Context
+
+import           Database.PostgreSQL.Simple    as Reexport (Only (..))
 
 -- | Derive DB client from API
 deriveDB :: HasDB layout m
@@ -44,14 +47,14 @@ class HasDB layout (m :: * -> *) where
 --
 -- @
 -- type API = Procedure "time" Integer
---   :<|> Arg "a" Int :> Procedure "square" Int
+--   :<|> Arg "a" Int :> Procedure "square" (Only Int)
 --
 -- data MyMonad m a -- Your application monad with connection pool and logger
 -- instance HasPostgres m
 -- instance MonadLogger m
 --
--- time :: MyMonad Integer
--- square :: Int -> MyMonad Int
+-- time :: MyMonad (Only Integer)
+-- square :: Int -> MyMonad (Only Int)
 -- (time, square) = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
 -- @
 --
@@ -69,13 +72,13 @@ instance (HasDB api1 m, HasDB api2 m) => HasDB (api1 :<|> api2) m where
 -- | Deriving several procedures to query DB API
 --
 -- @
--- type API = "public" :> Procedure "time" Integer
+-- type API = "public" :> Procedure "time" (Only Integer)
 --
 -- data MyMonad m a -- Your application monad with connection pool and logger
 -- instance HasPostgres m
 -- instance MonadLogger m
 --
--- time :: MyMonad Integer
+-- time :: MyMonad (Only Integer)
 -- time = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
 -- @
 --
@@ -96,13 +99,13 @@ instance (KnownSymbol n, HasDB api m) => HasDB (n :> api) m where
 -- | Deriving call to DB procedure with arguments
 --
 -- @
--- type API = Arg "a" Int :> Arg "b" Int :> Procedure "sum" Int
+-- type API = Arg "a" Int :> Arg "b" Int :> Procedure "sum" (Only Int)
 --
 -- data MyMonad m a -- Your application monad with connection pool and logger
 -- instance HasPostgres m
 -- instance MonadLogger m
 --
--- dbSum :: Int -> Int -> MyMonad Int
+-- dbSum :: Int -> Int -> MyMonad (Only Int)
 -- dbSum = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
 -- @
 --
@@ -150,21 +153,21 @@ instance {-# OVERLAPPING #-} (KnownSymbol n, FromRow a, MonadPostgres m)
 -- | Deriving call to DB procedure with single result
 --
 -- @
--- type API = Arg "a" Int -> Procedure "square" Int
+-- type API = Arg "a" Int -> Procedure "squareReturning" (Int, Int)
 --
 -- data MyMonad m a -- Your application monad with connection pool and logger
 -- instance HasPostgres m
 -- instance MonadLogger m
 --
--- square :: Int -> MyMonad Int
+-- square :: Int -> MyMonad (Int, Int)
 -- square = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
 -- @
 --
 -- Upper example will derive the following SQL call:
--- >>> SELECT square();
+-- >>> SELECT squareReturning();
 --
--- The instance expects that return type of SQL stored function is single value.
-instance {-# OVERLAPPABLE #-} (KnownSymbol n, FromField a, MonadPostgres m)
+-- The instance expects that return type of SQL stored function is a single row.
+instance {-# OVERLAPPABLE #-} (KnownSymbol n, FromRow a, MonadPostgres m)
   => HasDB (Procedure n a) m where
   type DB (Procedure n a) m = m a
 
@@ -173,7 +176,7 @@ instance {-# OVERLAPPABLE #-} (KnownSymbol n, FromField a, MonadPostgres m)
     case mv of
       [] -> fail $ "deriveDBWithCtx: received zero results when expected"
         <> " exactly one. PG Function: " <> n'
-      (Only v : _) -> return v
+      (v : _) -> return v
     where
       n' = symbolVal (Proxy :: Proxy n)
       n = pack n'

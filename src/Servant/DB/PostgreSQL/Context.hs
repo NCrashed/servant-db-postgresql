@@ -53,11 +53,11 @@ addQueryArgument name a ctx = ctx {
 queryStoredFunction :: Text -- ^ Name of function
   -> QueryContext -- ^ Context
   -> SqlBuilder
-queryStoredFunction name ctx = "SELECT "
+queryStoredFunction name ctx = "SELECT * FROM"
   <> toSqlBuilder (QualifiedIdentifier (querySchema ctx) name)
   <> "("
   <> mconcat (uncurry argBuilder <$> queryArguments ctx)
-  <> ");"
+  <> ") as t;"
   where
     argBuilder aname (QueryArg a) = toSqlBuilder (Identifier aname)
       <> " => " <> mkValue a
