@@ -1,3 +1,8 @@
+{-|
+Module      : Servant.DB.PostgreSQL
+Description : Reexport tools for deriving of PostgreSQL client for DB API.
+Portability : Not portable
+-}
 module Servant.DB.PostgreSQL(
     module Reexport
   ) where
