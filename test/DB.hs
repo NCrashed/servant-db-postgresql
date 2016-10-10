@@ -4,13 +4,13 @@ module DB(
   , runDB
   ) where
 
-import Data.ByteString (ByteString)
-import qualified Data.ByteString.Char8 as BS
-import Options.Applicative
-import Database.PostgreSQL.Query
-import Data.Maybe
-import Control.Monad.Logger
-import Control.Monad.Base
+import           Control.Monad.Base
+import           Control.Monad.Logger
+import           Data.ByteString           (ByteString)
+import qualified Data.ByteString.Char8     as BS
+import           Data.Maybe
+import           Database.PostgreSQL.Query
+import           Options.Applicative
 
 newtype PostgresM a = PostgresM { runPostgresM :: PgMonadT (LoggingT IO) a }
   deriving (Functor, HasPostgres, MonadLogger, Monad, Applicative, MonadBase IO)

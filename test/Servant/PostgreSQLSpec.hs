@@ -3,10 +3,14 @@
 module Servant.PostgreSQLSpec(spec) where
 
 import           Data.Proxy
+import           Data.Text             (Text)
+import           Data.Time
 import           DB
 import           Fixture
+import           GHC.Generics
 import           Test.Hspec            hiding (Arg)
 import           Test.HUnit
+import           Test.QuickCheck
 
 import           Servant.API.DB
 import           Servant.DB.PostgreSQL
@@ -14,6 +18,9 @@ import           Servant.DB.PostgreSQL
 type SquareAPI = Arg "a" Int :> Procedure "square1" (Only Int)
 type SquareSchemaAPI = "test" :> Arg "b" Int :> Procedure "square2" (Only Int)
 type SuccAndPredAPI = Arg "n" Int :> Procedure "succAndPred" (Int, Int)
+type UserAPI =
+       Arg "u" (Composite UserCreate) :> Procedure "postUser" (Only Int)
+  :<|> Procedure "getUsers" [User]
 
 square :: Int -> PostgresM (Only Int)
 square = deriveDB (Proxy :: Proxy SquareAPI) (Proxy :: Proxy PostgresM)
@@ -23,6 +30,10 @@ squareSchema = deriveDB (Proxy :: Proxy SquareSchemaAPI) (Proxy :: Proxy Postgre
 
 succAndPred :: Int -> PostgresM (Int, Int)
 succAndPred = deriveDB (Proxy :: Proxy SuccAndPredAPI) (Proxy :: Proxy PostgresM)
+
+postUser :: Composite UserCreate -> PostgresM (Only Int)
+getUsers :: PostgresM [User]
+(postUser :<|> getUsers) = deriveDB (Proxy :: Proxy UserAPI) (Proxy :: Proxy PostgresM)
 
 spec :: Spec
 spec = before migrateFixture $ after (const deleteFixture) $
@@ -36,3 +47,8 @@ spec = before migrateFixture $ after (const deleteFixture) $
     it "supports row return" $ do
       b <- runDB $ succAndPred 4
       assertEqual "4+1 and 4-1 = (5, 3)" (5,3) b
+    it "supports table return" $ do
+      user <- generate arbitrary
+      Only i <- runDB $ postUser $ Composite user
+      users <- runDB getUsers
+      assertEqual "wrote == read" [userCreateToUser user i] users

@@ -2,11 +2,14 @@
 module Fixture(
     migrateFixture
   , deleteFixture
+  , module Reexport
   ) where
 
 import           Control.Monad
 import           Database.PostgreSQL.Query
 import           DB
+
+import           Fixture.User              as Reexport
 
 -- | Migrate all data that is needed for tests
 migrateFixture :: IO ()
@@ -15,6 +18,7 @@ migrateFixture = runDB $ do
   testSchema
   squareFunctionSchema
   succAndPredFunc
+  userFuncs
 
 -- | Delete fixture from DB
 deleteFixture :: IO ()
@@ -23,6 +27,7 @@ deleteFixture = runDB $ do
   squareFunctionSchemaDrop
   testSchemaDrop
   succAndPredFuncDrop
+  userFuncsDrop
 
 -- | Stored function for squaring input
 squareFunction :: PostgresM ()
@@ -74,4 +79,37 @@ succAndPredFunc = void $ pgExecute [sqlExp|
 succAndPredFuncDrop :: PostgresM ()
 succAndPredFuncDrop = void $ pgExecute [sqlExp|
   DROP FUNCTION IF EXISTS "succAndPred"(n integer);
+  |]
+
+userFuncs :: PostgresM ()
+userFuncs = void $ pgExecute [sqlExp|
+  CREATE TYPE "userCreate" AS(
+    name text,
+    password text,
+    regTime date
+  );
+
+  CREATE TABLE IF NOT EXISTS "users"(
+    id serial PRIMARY KEY,
+    name text NOT NULL,
+    password text NOT NULL,
+    regTime date NOT NULL
+  );
+
+  CREATE OR REPLACE FUNCTION "postUser"(u "userCreate") RETURNS integer AS $$
+    INSERT INTO users(name, password, regTime) VALUES (u.name, u.password, u.regTime)
+    RETURNING id;
+  $$ LANGUAGE sql;
+
+  CREATE OR REPLACE FUNCTION "getUsers"() RETURNS SETOF users AS $$
+    SELECT * FROM users;
+  $$ LANGUAGE sql;
+  |]
+
+userFuncsDrop :: PostgresM ()
+userFuncsDrop = void $ pgExecute [sqlExp|
+  DROP FUNCTION IF EXISTS "postUser"(u "userCreate");
+  DROP FUNCTION IF EXISTS "getUsers"();
+  DROP TYPE IF EXISTS "userCreate" CASCADE;
+  DROP TABLE IF EXISTS "users";
   |]

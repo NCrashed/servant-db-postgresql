@@ -16,6 +16,7 @@ module Servant.DB.PostgreSQL.HasDB(
   , module Reexport
   ) where
 
+import           Control.Monad                 (void)
 import           Data.Monoid
 import           Data.Proxy
 import           Data.Text                     (pack)
@@ -118,6 +119,36 @@ instance (KnownSymbol n, ToField a, HasDB api m) => HasDB (Arg n a :> api) m whe
     where
       n = pack $ symbolVal (Proxy :: Proxy n)
       ctx' = addQueryArgument n a ctx
+  {-# INLINE deriveDBWithCtx #-}
+
+-- | Deriving call to DB procedure with no return type
+--
+-- @
+-- data User -- user data
+-- instance ToRow User
+--
+-- type API = Arg "user" User :> Procedure "users" User
+--
+-- data MyMonad m a -- Your application monad with connection pool and logger
+-- instance HasPostgres m
+-- instance MonadLogger m
+--
+-- getUsers :: MyMonad [Users]
+-- getUsers = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
+-- @
+--
+-- Upper example will derive the following SQL call:
+-- >>> SELECT users();
+--
+-- And the instance expects that `users` function return type is `SETOF user`.
+instance {-# OVERLAPPING #-} (KnownSymbol n, MonadPostgres m)
+  => HasDB (Procedure n ()) m where
+  type DB (Procedure n ()) m = m ()
+
+  deriveDBWithCtx _ _ ctx = void $ pgExecute q
+    where
+      n = pack $ symbolVal (Proxy :: Proxy n)
+      q = queryStoredFunction n ctx
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with multiple result
