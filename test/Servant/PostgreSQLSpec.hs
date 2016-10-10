@@ -15,11 +15,11 @@ import           Test.QuickCheck
 import           Servant.API.DB
 import           Servant.DB.PostgreSQL
 
-type SquareAPI = Arg "a" Int :> Procedure "square1" (Only Int)
-type SquareSchemaAPI = "test" :> Arg "b" Int :> Procedure "square2" (Only Int)
-type SuccAndPredAPI = Arg "n" Int :> Procedure "succAndPred" (Int, Int)
+type SquareAPI = ArgNamed "a" Int :> Procedure "square1" (Only Int)
+type SquareSchemaAPI = "test" :> ArgNamed "b" Int :> Procedure "square2" (Only Int)
+type SuccAndPredAPI = ArgNamed "n" Int :> Procedure "succAndPred" (Int, Int)
 type UserAPI =
-       Arg "u" (Composite UserCreate) :> Procedure "postUser" (Only Int)
+       ArgNamed "u" (Composite UserCreate) :> Procedure "postUser" (Only Int)
   :<|> Procedure "getUsers" [User]
 
 square :: Int -> PostgresM (Only Int)

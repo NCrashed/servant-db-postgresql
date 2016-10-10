@@ -1,5 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE TemplateHaskell            #-}
 module Fixture.User(
     User(..)
   , UserCreate(..)
@@ -8,18 +9,23 @@ module Fixture.User(
   ) where
 
 import           Data.DeriveTH
-import           Data.Text
 import           Data.Time
 import           Database.PostgreSQL.Query
 import           GHC.Generics
 import           Test.QuickCheck.Arbitrary
 import           Test.QuickCheck.Instances
 
+newtype NotNullString = NotNullString String
+  deriving (Eq, Show, FromField, ToField)
+
+instance Arbitrary NotNullString where
+  arbitrary = NotNullString . filter (/= '\0') <$> arbitrary
+
 -- | Sample User record that is used to test custom types as return type
 data User = User {
   userId       :: !Int
-, userName     :: !String
-, userPassword :: !String
+, userName     :: !NotNullString
+, userPassword :: !NotNullString
 , userRegDay   :: !Day
 } deriving (Generic, Eq, Show)
 
@@ -29,9 +35,9 @@ deriveToRow ''User
 
 -- | Sample User record that is used to test custom types as return type
 data UserCreate = UserCreate {
-  userCreateName     :: !String
-, userCreatePassword :: !String
-, userCreateRegDay  :: !Day
+  userCreateName     :: !NotNullString
+, userCreatePassword :: !NotNullString
+, userCreateRegDay   :: !Day
 } deriving (Generic, Eq, Show)
 
 derive makeArbitrary ''UserCreate

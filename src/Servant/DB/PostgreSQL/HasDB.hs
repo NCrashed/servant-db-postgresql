@@ -48,7 +48,7 @@ class HasDB layout (m :: * -> *) where
 --
 -- @
 -- type API = Procedure "time" Integer
---   :<|> Arg "a" Int :> Procedure "square" (Only Int)
+--   :<|> ArgNamed "a" Int :> Procedure "square" (Only Int)
 --
 -- data MyMonad m a -- Your application monad with connection pool and logger
 -- instance HasPostgres m
@@ -97,10 +97,10 @@ instance (KnownSymbol n, HasDB api m) => HasDB (n :> api) m where
       ctx' = ctx { querySchema = Just n }
   {-# INLINE deriveDBWithCtx #-}
 
--- | Deriving call to DB procedure with arguments
+-- | Deriving call to DB procedure with named arguments
 --
 -- @
--- type API = Arg "a" Int :> Arg "b" Int :> Procedure "sum" (Only Int)
+-- type API = ArgNamed "a" Int :> ArgNamed "b" Int :> Procedure "sum" (Only Int)
 --
 -- data MyMonad m a -- Your application monad with connection pool and logger
 -- instance HasPostgres m
@@ -112,13 +112,36 @@ instance (KnownSymbol n, HasDB api m) => HasDB (n :> api) m where
 --
 -- Upper example will derive the following SQL call:
 -- >>> SELECT sum("a" => ?, "b" => ?);
-instance (KnownSymbol n, ToField a, HasDB api m) => HasDB (Arg n a :> api) m where
-  type DB (Arg n a :> api) m = a -> DB api m
+instance (KnownSymbol n, ToField a, HasDB api m) => HasDB (ArgNamed n a :> api) m where
+  type DB (ArgNamed n a :> api) m = a -> DB api m
 
   deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
     where
       n = pack $ symbolVal (Proxy :: Proxy n)
-      ctx' = addQueryArgument n a ctx
+      ctx' = addQueryArgument (Just n) a ctx
+  {-# INLINE deriveDBWithCtx #-}
+
+-- | Deriving call to DB procedure with positional arguments
+--
+-- @
+-- type API = Arg Int :> Arg Int :> Procedure "sum" (Only Int)
+--
+-- data MyMonad m a -- Your application monad with connection pool and logger
+-- instance HasPostgres m
+-- instance MonadLogger m
+--
+-- dbSum :: Int -> Int -> MyMonad (Only Int)
+-- dbSum = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
+-- @
+--
+-- Upper example will derive the following SQL call:
+-- >>> SELECT sum(?, ?);
+instance (ToField a, HasDB api m) => HasDB (ArgPos a :> api) m where
+  type DB (ArgPos a :> api) m = a -> DB api m
+
+  deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
+    where
+      ctx' = addQueryArgument Nothing a ctx
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with no return type
