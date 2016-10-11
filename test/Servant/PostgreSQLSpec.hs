@@ -38,6 +38,9 @@ voidProc = deriveDB (Proxy :: Proxy VoidAPI) (Proxy :: Proxy PostgresM)
 variadicProc :: Variadic Int -> PostgresM (Maybe (Only Int))
 variadicProc = deriveDB (Proxy :: Proxy VariadicAPI) (Proxy :: Proxy PostgresM)
 
+arrayProc :: PGArray Int -> PostgresM (Maybe (Only Int))
+arrayProc = deriveDB (Proxy :: Proxy ArrayAPI) (Proxy :: Proxy PostgresM)
+
 spec :: Spec
 spec = describe "Servant.DB.PostgreSQL" $ do
   it "can call simple stored functions" $ withSquareFunc $ do
@@ -65,6 +68,11 @@ spec = describe "Servant.DB.PostgreSQL" $ do
     res1 <- runDB $ variadicProc (Variadic $ PGArray [10, -1, 5, 4])
     assertEqual "mleast [10, -1, 5, 4] = -1" (Just $ Only (-1)) res1
     res2 <- runDB $ variadicProc (Variadic $ PGArray [])
+    assertEqual "mleast [] = NULL" Nothing res2
+  it "handles array type" $ withArrayFuncs$ do
+    res1 <- runDB $ arrayProc (PGArray [10, -1, 5, 4])
+    assertEqual "mleast [10, -1, 5, 4] = -1" (Just $ Only (-1)) res1
+    res2 <- runDB $ arrayProc (PGArray [])
     assertEqual "mleast [] = NULL" Nothing res2
 
 

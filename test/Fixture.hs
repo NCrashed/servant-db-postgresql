@@ -10,6 +10,7 @@ module Fixture(
   , OrderedAPI2
   , VoidAPI
   , VariadicAPI
+  , ArrayAPI
   , withSquareFunc
   , withTestSchema
   , withSquareSchema
@@ -18,6 +19,7 @@ module Fixture(
   , withOrderedFuncs
   , withVoid
   , withVariadic
+  , withArrayFuncs
   , module Reexport
   ) where
 
@@ -42,6 +44,7 @@ type OrderedAPI2 = ArgPos Int :> ArgNamed "a" Int :> ArgPos Int
   :> Procedure "ordered" (Only Int)
 type VoidAPI = Procedure "void" ()
 type VariadicAPI = ArgNamed "arr" (Variadic Int) :> Procedure "mleast" (Maybe (Only Int))
+type ArrayAPI = ArgPos (PGArray Int) :> Procedure "mleast" (Maybe (Only Int))
 
 -- | Helper to make cleanable migration
 withMigration :: PostgresM () -> PostgresM () -> IO c -> IO c
@@ -192,5 +195,20 @@ variadicFunc = void $ pgExecute [sqlExp|
 
 variadicFuncDrop :: PostgresM ()
 variadicFuncDrop = void $ pgExecute [sqlExp|
-  DROP FUNCTION IF EXISTS "mleast"();
+  DROP FUNCTION IF EXISTS "mleast"(VARIADIC arr int[]);
+  |]
+
+withArrayFuncs :: IO a -> IO a
+withArrayFuncs = withMigration arrayFuncs arrayFuncsDrop
+
+arrayFuncs :: PostgresM ()
+arrayFuncs = void $ pgExecute [sqlExp|
+  CREATE OR REPLACE FUNCTION "mleast"(int[]) RETURNS int AS $$
+      SELECT min($1[i]) FROM generate_subscripts($1, 1) g(i);
+  $$ LANGUAGE SQL;
+  |]
+
+arrayFuncsDrop :: PostgresM ()
+arrayFuncsDrop = void $ pgExecute [sqlExp|
+  DROP FUNCTION IF EXISTS "mleast"(int[]);
   |]
