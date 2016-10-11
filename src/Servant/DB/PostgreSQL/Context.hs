@@ -1,7 +1,10 @@
 {-# LANGUAGE BangPatterns              #-}
+{-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE KindSignatures            #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE TypeFamilies              #-}
 {-|
 Module      : Servant.DB.PostgreSQL.Context
 Description : Query context that is used as temp storage
@@ -16,6 +19,7 @@ module Servant.DB.PostgreSQL.Context(
   ) where
 
 import           Data.Foldable
+import           Data.Kind
 import           Data.List                        (intersperse)
 import           Data.Monoid
 import           Data.Sequence                    (Seq)
@@ -24,16 +28,19 @@ import           Data.Text                        (Text)
 import           Database.PostgreSQL.Query
 import           Database.PostgreSQL.Simple.Types
 
--- | Encapsulated argument that can be serialized into field
-data QueryArg = forall a . ToField a => QueryArg a
+-- | Encapsulated argument that can be serialized into field or type checked
+--
+-- The type parameter can be 'ToField' for query generation or 'Typeable' for
+-- type checking of DB signature.
+data QueryArg (r :: * -> Constraint) = forall a . r a => QueryArg a
 
-instance ToField QueryArg where
+instance ToField ~ r => ToField (QueryArg r) where
   toField (QueryArg a) = toField a
 
 -- | Catches intermediate parameters for query
-data QueryContext = QueryContext {
+data QueryContext (r :: * -> Constraint) = QueryContext {
   -- | List of named and positional arguments
-  queryArguments :: !(Seq (Maybe Text, QueryArg))
+  queryArguments :: !(Seq (Maybe Text, QueryArg r))
   -- | Schema name
 , querySchema    :: !(Maybe Text)
   -- | Whether the query returns void
@@ -41,7 +48,7 @@ data QueryContext = QueryContext {
 }
 
 -- | New empty query context
-newQueryContext :: QueryContext
+newQueryContext :: QueryContext r
 newQueryContext = QueryContext {
     queryArguments = mempty
   , querySchema = Nothing
@@ -49,11 +56,11 @@ newQueryContext = QueryContext {
   }
 
 -- | Add new argument to query context
-addQueryArgument :: ToField a
+addQueryArgument :: r a
   => Maybe Text -- ^ Name of argument, 'Nothing' for positional arguments
   -> a -- ^ Value of argument
-  -> QueryContext -- ^ Context
-  -> QueryContext -- ^ New context with the argument
+  -> QueryContext r -- ^ Context
+  -> QueryContext r -- ^ New context with the argument
 addQueryArgument name a ctx = ctx {
     queryArguments = queryArguments ctx S.|> (name, QueryArg a)
   }
@@ -62,19 +69,21 @@ addQueryArgument name a ctx = ctx {
 --
 -- PG call conventions require that named arguments cannot
 -- precede positional ones.
-querySplitArguments :: QueryContext
-  -> (Seq QueryArg, Seq (Text, QueryArg))
+querySplitArguments :: QueryContext r
+  -> (Seq (QueryArg r), Seq (Text, QueryArg r))
 querySplitArguments QueryContext{..} = foldl' go (mempty, mempty) queryArguments
   where
-    go :: (Seq QueryArg, Seq (Text, QueryArg)) -> (Maybe Text, QueryArg)
-      -> (Seq QueryArg, Seq (Text, QueryArg))
+    go :: (Seq (QueryArg r), Seq (Text, QueryArg r)) -> (Maybe Text, QueryArg r)
+      -> (Seq (QueryArg r), Seq (Text, QueryArg r))
     go (!posed, !named) (mn, a) = case mn of
       Nothing -> (posed S.|> a, named)
       Just n  -> (posed, named S.|> (n, a))
 
 -- | Construct query that calls DB stored function
-queryStoredFunction :: Text -- ^ Name of function
-  -> QueryContext -- ^ Context
+queryStoredFunction
+  :: forall r . r ~ ToField
+  => Text -- ^ Name of function
+  -> QueryContext r -- ^ Context
   -> SqlBuilder
 queryStoredFunction name ctx =
      "SELECT "
@@ -92,6 +101,8 @@ queryStoredFunction name ctx =
     namedBuilder = mconcat (addCommas $ uncurry argNamedBuilder <$> toList named)
 
     addCommas = intersperse ", "
+    argPosedBuilder :: QueryArg r -> SqlBuilder
     argPosedBuilder (QueryArg a) = mkValue a
+    argNamedBuilder :: Text -> QueryArg r -> SqlBuilder
     argNamedBuilder aname (QueryArg a) = toSqlBuilder (Identifier aname)
       <> " => " <> mkValue a

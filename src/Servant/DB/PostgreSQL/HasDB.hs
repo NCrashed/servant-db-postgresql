@@ -41,7 +41,7 @@ class HasDB layout (m :: * -> *) where
   type DB layout m :: *
 
   -- | Derive DB client from API layout
-  deriveDBWithCtx :: Proxy layout -> Proxy m -> QueryContext
+  deriveDBWithCtx :: Proxy layout -> Proxy m -> QueryContext ToField
     -> DB layout m
 
 -- | Deriving several procedures to query DB API
@@ -234,7 +234,7 @@ instance {-# OVERLAPPABLE #-} (KnownSymbol n, FromRow a, MonadPostgres m)
         <> " exactly one. PG Function: " <> n'
       (v : _) -> return v
     where
-      n' = symbolVal (Proxy :: Proxy n)
+      n' = symbolVal (Proxy :: Proxy n){--}
       n = pack n'
       q = queryStoredFunction n ctx
   {-# INLINE deriveDBWithCtx #-}
