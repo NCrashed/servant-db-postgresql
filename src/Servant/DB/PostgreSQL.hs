@@ -9,3 +9,4 @@ module Servant.DB.PostgreSQL(
 
 import           Servant.DB.PostgreSQL.Composite as Reexport
 import           Servant.DB.PostgreSQL.HasDB     as Reexport
+import           Servant.DB.PostgreSQL.Variadic  as Reexport

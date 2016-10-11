@@ -15,6 +15,7 @@ module Servant.DB.PostgreSQL.Context(
   , QueryContext(..)
   , newQueryContext
   , addQueryArgument
+  , addQueryVariadicArg
   , queryStoredFunction
   ) where
 
@@ -27,15 +28,13 @@ import qualified Data.Sequence                    as S
 import           Data.Text                        (Text)
 import           Database.PostgreSQL.Query
 import           Database.PostgreSQL.Simple.Types
+import           Servant.DB.PostgreSQL.Variadic
 
 -- | Encapsulated argument that can be serialized into field or type checked
 --
 -- The type parameter can be 'ToField' for query generation or 'Typeable' for
 -- type checking of DB signature.
-data QueryArg (r :: * -> Constraint) = forall a . r a => QueryArg a
-
-instance ToField ~ r => ToField (QueryArg r) where
-  toField (QueryArg a) = toField a
+data QueryArg (r :: * -> Constraint) = forall a . r a => QueryArg (Either (Variadic a) a)
 
 -- | Catches intermediate parameters for query
 data QueryContext (r :: * -> Constraint) = QueryContext {
@@ -62,7 +61,17 @@ addQueryArgument :: r a
   -> QueryContext r -- ^ Context
   -> QueryContext r -- ^ New context with the argument
 addQueryArgument name a ctx = ctx {
-    queryArguments = queryArguments ctx S.|> (name, QueryArg a)
+    queryArguments = queryArguments ctx S.|> (name, QueryArg (Right a))
+  }
+
+-- | Add new argument to query context
+addQueryVariadicArg :: r a
+  => Maybe Text -- ^ Name of argument, 'Nothing' for positional arguments
+  -> Variadic a -- ^ Value of argument
+  -> QueryContext r -- ^ Context
+  -> QueryContext r -- ^ New context with the argument
+addQueryVariadicArg name a ctx = ctx {
+    queryArguments = queryArguments ctx S.|> (name, QueryArg (Left a))
   }
 
 -- | Helper to split positional and named arguments
@@ -102,7 +111,12 @@ queryStoredFunction name ctx =
 
     addCommas = intersperse ", "
     argPosedBuilder :: QueryArg r -> SqlBuilder
-    argPosedBuilder (QueryArg a) = mkValue a
+    argPosedBuilder (QueryArg marg) = case marg of
+      Left (Variadic va) -> "VARIADIC " <> mkValue va
+      Right a -> mkValue a
+
     argNamedBuilder :: Text -> QueryArg r -> SqlBuilder
-    argNamedBuilder aname (QueryArg a) = toSqlBuilder (Identifier aname)
-      <> " => " <> mkValue a
+    argNamedBuilder aname (QueryArg marg) = case marg of
+      Left (Variadic a) -> "VARIADIC "
+              <> toSqlBuilder (Identifier aname) <> " => " <> mkValue a
+      Right a -> toSqlBuilder (Identifier aname) <> " => " <> mkValue a

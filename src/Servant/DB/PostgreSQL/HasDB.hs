@@ -25,6 +25,7 @@ import           GHC.TypeLits
 import           Servant.API
 import           Servant.API.DB
 import           Servant.DB.PostgreSQL.Context
+import           Servant.DB.PostgreSQL.Variadic
 
 import           Database.PostgreSQL.Simple    as Reexport (Only (..))
 
@@ -112,13 +113,37 @@ instance (KnownSymbol n, HasDB api m) => HasDB (n :> api) m where
 --
 -- Upper example will derive the following SQL call:
 -- >>> SELECT * FROM sum("a" => ?, "b" => ?) AS t;
-instance (KnownSymbol n, ToField a, HasDB api m) => HasDB (ArgNamed n a :> api) m where
+instance {-# OVERLAPPABLE #-} (KnownSymbol n, ToField a, HasDB api m) => HasDB (ArgNamed n a :> api) m where
   type DB (ArgNamed n a :> api) m = a -> DB api m
 
   deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
     where
       n = pack $ symbolVal (Proxy :: Proxy n)
       ctx' = addQueryArgument (Just n) a ctx
+  {-# INLINE deriveDBWithCtx #-}
+
+-- | Deriving call to DB procedure with named variadic arguments
+--
+-- @
+-- type API = ArgNamed "arr" (Variadic Int) :> Procedure "mleast" (Only Int)
+--
+-- data MyMonad m a -- Your application monad with connection pool and logger
+-- instance HasPostgres m
+-- instance MonadLogger m
+--
+-- dbMleast :: Variadic Int -> MyMonad (Only Int)
+-- dbMleast = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
+-- @
+--
+-- Upper example will derive the following SQL call:
+-- >>> SELECT * FROM mleast(VARIADIC "arr" => ?) AS t;
+instance {-# OVERLAPPING #-} (KnownSymbol n, ToField a, HasDB api m) => HasDB (ArgNamed n (Variadic a) :> api) m where
+  type DB (ArgNamed n (Variadic a) :> api) m = Variadic a -> DB api m
+
+  deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
+    where
+      n = pack $ symbolVal (Proxy :: Proxy n)
+      ctx' = addQueryVariadicArg (Just n) a ctx
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with positional arguments
@@ -136,12 +161,35 @@ instance (KnownSymbol n, ToField a, HasDB api m) => HasDB (ArgNamed n a :> api) 
 --
 -- Upper example will derive the following SQL call:
 -- >>> SELECT * FROM sum(?, ?) AS t;
-instance (ToField a, HasDB api m) => HasDB (ArgPos a :> api) m where
+instance {-# OVERLAPPABLE #-} (ToField a, HasDB api m) => HasDB (ArgPos a :> api) m where
   type DB (ArgPos a :> api) m = a -> DB api m
 
   deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
     where
       ctx' = addQueryArgument Nothing a ctx
+  {-# INLINE deriveDBWithCtx #-}
+
+-- | Deriving call to DB procedure with positional variadic arguments
+--
+-- @
+-- type API = ArgPos (Variadic Int) :> Procedure "mleast" (Only Int)
+--
+-- data MyMonad m a -- Your application monad with connection pool and logger
+-- instance HasPostgres m
+-- instance MonadLogger m
+--
+-- dbMleast :: Variadic Int -> MyMonad (Only Int)
+-- dbMleast = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
+-- @
+--
+-- Upper example will derive the following SQL call:
+-- >>> SELECT * FROM mleast(VARIADIC ?) AS t;
+instance {-# OVERLAPPING #-} (ToField a, HasDB api m) => HasDB (ArgPos (Variadic a) :> api) m where
+  type DB (ArgPos (Variadic a) :> api) m = Variadic a -> DB api m
+
+  deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
+    where
+      ctx' = addQueryVariadicArg Nothing a ctx
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with no return type

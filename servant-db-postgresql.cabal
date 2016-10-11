@@ -21,6 +21,7 @@ library
     Servant.DB.PostgreSQL.Composite
     Servant.DB.PostgreSQL.Context
     Servant.DB.PostgreSQL.HasDB
+    Servant.DB.PostgreSQL.Variadic
   -- other-modules:
   -- other-extensions:
   build-depends:

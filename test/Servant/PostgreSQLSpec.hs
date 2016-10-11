@@ -35,6 +35,9 @@ ordered2 = deriveDB (Proxy :: Proxy OrderedAPI2) (Proxy :: Proxy PostgresM)
 voidProc :: PostgresM ()
 voidProc = deriveDB (Proxy :: Proxy VoidAPI) (Proxy :: Proxy PostgresM)
 
+variadicProc :: Variadic Int -> PostgresM (Maybe (Only Int))
+variadicProc = deriveDB (Proxy :: Proxy VariadicAPI) (Proxy :: Proxy PostgresM)
+
 spec :: Spec
 spec = describe "Servant.DB.PostgreSQL" $ do
   it "can call simple stored functions" $ withSquareFunc $ do
@@ -58,5 +61,10 @@ spec = describe "Servant.DB.PostgreSQL" $ do
     Only b <- runDB $ ordered2 1 2 3
     assertEqual "1+3*2+2*3 = 13" 13 b
   it "handles void return type" $ withVoid $ runDB voidProc
+  it "handles variadic type" $ withVariadic $ do
+    res1 <- runDB $ variadicProc (Variadic $ PGArray [10, -1, 5, 4])
+    assertEqual "mleast [10, -1, 5, 4] = -1" (Just $ Only (-1)) res1
+    res2 <- runDB $ variadicProc (Variadic $ PGArray [])
+    assertEqual "mleast [] = NULL" Nothing res2
 
 
