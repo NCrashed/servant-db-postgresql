@@ -11,8 +11,8 @@ import           Test.HUnit
 import           Test.QuickCheck
 
 import           Servant.API.DB
+import           Servant.API.DB.Default
 import           Servant.DB.PostgreSQL
-import           Servant.DB.PostgreSQL.Default
 
 square :: Int -> PostgresM (Only Int)
 square = deriveDB (Proxy :: Proxy SquareAPI) (Proxy :: Proxy PostgresM)

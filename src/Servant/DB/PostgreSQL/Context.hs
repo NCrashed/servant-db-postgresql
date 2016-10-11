@@ -28,8 +28,8 @@ import qualified Data.Sequence                    as S
 import           Data.Text                        (Text)
 import           Database.PostgreSQL.Query
 import           Database.PostgreSQL.Simple.Types hiding (Default)
+import           Servant.API.DB.Default
 import           Servant.DB.PostgreSQL.Variadic
-import           Servant.DB.PostgreSQL.Default
 import GHC.Generics
 
 -- | Captures special cases of stored function arguments

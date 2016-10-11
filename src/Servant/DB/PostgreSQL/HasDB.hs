@@ -24,8 +24,8 @@ import           Database.PostgreSQL.Query
 import           GHC.TypeLits
 import           Servant.API
 import           Servant.API.DB
+import           Servant.API.DB.Default
 import           Servant.DB.PostgreSQL.Context
-import           Servant.DB.PostgreSQL.Default
 import           Servant.DB.PostgreSQL.Variadic
 
 import           Database.PostgreSQL.Simple    as Reexport (Only (..))

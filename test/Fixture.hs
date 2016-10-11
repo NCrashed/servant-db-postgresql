@@ -30,8 +30,8 @@ import           Control.Monad
 import           Database.PostgreSQL.Query
 import           DB
 import           Servant.API.DB
+import           Servant.API.DB.Default
 import           Servant.DB.PostgreSQL
-import           Servant.DB.PostgreSQL.Default
 
 import           Fixture.User              as Reexport
 

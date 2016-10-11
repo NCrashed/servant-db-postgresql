@@ -37,10 +37,10 @@ resolver: lts-7.2
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - '.'
-- '../servant-db'
-#- location:
-#    git: git@github.com:NCrashed/servant-db.git
-#    commit: a6540a0a2eb25ece4028b05002de4ae91a63f915
+#- '../servant-db'
+- location:
+    git: git@github.com:NCrashed/servant-db.git
+    commit: eaeb6eb90b82a2c55c5ffdd260da494f12d9c3da
 
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
