@@ -111,7 +111,7 @@ instance (KnownSymbol n, HasDB api m) => HasDB (n :> api) m where
 -- @
 --
 -- Upper example will derive the following SQL call:
--- >>> SELECT sum("a" => ?, "b" => ?);
+-- >>> SELECT * FROM sum("a" => ?, "b" => ?) AS t;
 instance (KnownSymbol n, ToField a, HasDB api m) => HasDB (ArgNamed n a :> api) m where
   type DB (ArgNamed n a :> api) m = a -> DB api m
 
@@ -135,7 +135,7 @@ instance (KnownSymbol n, ToField a, HasDB api m) => HasDB (ArgNamed n a :> api) 
 -- @
 --
 -- Upper example will derive the following SQL call:
--- >>> SELECT sum(?, ?);
+-- >>> SELECT * FROM sum(?, ?) AS t;
 instance (ToField a, HasDB api m) => HasDB (ArgPos a :> api) m where
   type DB (ArgPos a :> api) m = a -> DB api m
 
@@ -150,28 +150,30 @@ instance (ToField a, HasDB api m) => HasDB (ArgPos a :> api) m where
 -- data User -- user data
 -- instance ToRow User
 --
--- type API = Arg "user" User :> Procedure "users" User
+-- type API = Arg "user" User :> Procedure "registerUser" ()
 --
 -- data MyMonad m a -- Your application monad with connection pool and logger
 -- instance HasPostgres m
 -- instance MonadLogger m
 --
--- getUsers :: MyMonad [Users]
+-- getUsers :: User -> MyMonad ()
 -- getUsers = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
 -- @
 --
 -- Upper example will derive the following SQL call:
--- >>> SELECT users();
+-- >>> SELECT registerUser("user" => ?);
 --
 -- And the instance expects that `users` function return type is `SETOF user`.
 instance {-# OVERLAPPING #-} (KnownSymbol n, MonadPostgres m)
   => HasDB (Procedure n ()) m where
   type DB (Procedure n ()) m = m ()
 
-  deriveDBWithCtx _ _ ctx = void $ pgExecute q
+  deriveDBWithCtx _ _ ctx = do
+    (_ :: [Only ()]) <- pgQuery q
+    return ()
     where
       n = pack $ symbolVal (Proxy :: Proxy n)
-      q = queryStoredFunction n ctx
+      q = queryStoredFunction n ctx { queryVoid = True }
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with multiple result
@@ -180,18 +182,18 @@ instance {-# OVERLAPPING #-} (KnownSymbol n, MonadPostgres m)
 -- data User -- user data
 -- instance FromRow User
 --
--- type API = Procedure "users" User
+-- type API = Procedure "users" [User]
 --
 -- data MyMonad m a -- Your application monad with connection pool and logger
 -- instance HasPostgres m
 -- instance MonadLogger m
 --
--- getUsers :: MyMonad [Users]
+-- getUsers :: MyMonad [User]
 -- getUsers = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
 -- @
 --
 -- Upper example will derive the following SQL call:
--- >>> SELECT users();
+-- >>> SELECT * FROM users() AS t;
 --
 -- And the instance expects that `users` function return type is `SETOF user`.
 instance {-# OVERLAPPING #-} (KnownSymbol n, FromRow a, MonadPostgres m)
@@ -218,7 +220,7 @@ instance {-# OVERLAPPING #-} (KnownSymbol n, FromRow a, MonadPostgres m)
 -- @
 --
 -- Upper example will derive the following SQL call:
--- >>> SELECT squareReturning();
+-- >>> SELECT * FROM squareReturning() AS t;
 --
 -- The instance expects that return type of SQL stored function is a single row.
 instance {-# OVERLAPPABLE #-} (KnownSymbol n, FromRow a, MonadPostgres m)

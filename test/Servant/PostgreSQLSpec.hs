@@ -25,6 +25,7 @@ type OrderedAPI1 = ArgPos Int :> ArgPos Int :> ArgNamed "a" Int
   :> Procedure "ordered" (Only Int)
 type OrderedAPI2 = ArgPos Int :> ArgNamed "a" Int :> ArgPos Int
   :> Procedure "ordered" (Only Int)
+type VoidAPI = Procedure "void" ()
 
 square :: Int -> PostgresM (Only Int)
 square = deriveDB (Proxy :: Proxy SquareAPI) (Proxy :: Proxy PostgresM)
@@ -44,6 +45,9 @@ ordered1 = deriveDB (Proxy :: Proxy OrderedAPI1) (Proxy :: Proxy PostgresM)
 
 ordered2 :: Int -> Int -> Int -> PostgresM (Only Int)
 ordered2 = deriveDB (Proxy :: Proxy OrderedAPI2) (Proxy :: Proxy PostgresM)
+
+voidProc :: PostgresM ()
+voidProc = deriveDB (Proxy :: Proxy VoidAPI) (Proxy :: Proxy PostgresM)
 
 spec :: Spec
 spec = describe "Servant.DB.PostgreSQL" $ do
@@ -67,4 +71,6 @@ spec = describe "Servant.DB.PostgreSQL" $ do
   it "handles mixed argument style" $ withOrderedFuncs $ do
     Only b <- runDB $ ordered2 1 2 3
     assertEqual "1+3*2+2*3 = 13" 13 b
+  it "handles void return type" $ withVoid $ runDB voidProc
+
 

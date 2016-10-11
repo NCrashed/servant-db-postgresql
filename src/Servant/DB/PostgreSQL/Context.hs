@@ -36,6 +36,8 @@ data QueryContext = QueryContext {
   queryArguments :: !(Seq (Maybe Text, QueryArg))
   -- | Schema name
 , querySchema    :: !(Maybe Text)
+  -- | Whether the query returns void
+, queryVoid      :: !Bool
 }
 
 -- | New empty query context
@@ -43,6 +45,7 @@ newQueryContext :: QueryContext
 newQueryContext = QueryContext {
     queryArguments = mempty
   , querySchema = Nothing
+  , queryVoid = False
   }
 
 -- | Add new argument to query context
@@ -73,13 +76,16 @@ querySplitArguments QueryContext{..} = foldl' go (mempty, mempty) queryArguments
 queryStoredFunction :: Text -- ^ Name of function
   -> QueryContext -- ^ Context
   -> SqlBuilder
-queryStoredFunction name ctx = "SELECT * FROM"
+queryStoredFunction name ctx =
+     "SELECT "
+  <> (if queryVoid ctx then mempty else "* FROM ")
   <> toSqlBuilder (QualifiedIdentifier (querySchema ctx) name)
   <> "("
   <> (if S.null posed then mempty
       else posedBuilder <> (if S.null named then mempty else ", "))
   <> (if S.null named then mempty else namedBuilder)
-  <> ") as t;"
+  <> ")"
+  <> (if queryVoid ctx then ";" else " as t;")
   where
     (posed, named) = querySplitArguments ctx
     posedBuilder =  mconcat (addCommas $ argPosedBuilder <$> toList posed)

@@ -6,6 +6,7 @@ module Fixture(
   , withSuccAndPred
   , withUserFuncs
   , withOrderedFuncs
+  , withVoid
   , module Reexport
   ) where
 
@@ -136,3 +137,19 @@ orderedFuncsDrop :: PostgresM ()
 orderedFuncsDrop = void $ pgExecute [sqlExp|
   DROP FUNCTION IF EXISTS "ordered"(integer, integer, a integer);
  |]
+
+withVoid :: IO a -> IO a
+withVoid = withMigration voidFunc voidFuncDrop
+
+voidFunc :: PostgresM ()
+voidFunc = void $ pgExecute [sqlExp|
+  CREATE OR REPLACE FUNCTION "void"() RETURNS void AS $$
+  BEGIN
+  END;
+  $$ LANGUAGE plpgsql;
+  |]
+
+voidFuncDrop :: PostgresM ()
+voidFuncDrop = void $ pgExecute [sqlExp|
+  DROP FUNCTION IF EXISTS "void"();
+  |]
