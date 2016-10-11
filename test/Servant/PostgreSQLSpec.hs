@@ -12,6 +12,7 @@ import           Test.QuickCheck
 
 import           Servant.API.DB
 import           Servant.DB.PostgreSQL
+import           Servant.DB.PostgreSQL.Default
 
 square :: Int -> PostgresM (Only Int)
 square = deriveDB (Proxy :: Proxy SquareAPI) (Proxy :: Proxy PostgresM)
@@ -41,6 +42,9 @@ variadicProc = deriveDB (Proxy :: Proxy VariadicAPI) (Proxy :: Proxy PostgresM)
 arrayProc :: PGArray Int -> PostgresM (Maybe (Only Int))
 arrayProc = deriveDB (Proxy :: Proxy ArrayAPI) (Proxy :: Proxy PostgresM)
 
+defaultProc :: Default Int -> Default Int -> PostgresM (Only Int)
+defaultProc = deriveDB (Proxy :: Proxy DefaultAPI) (Proxy :: Proxy PostgresM)
+
 spec :: Spec
 spec = describe "Servant.DB.PostgreSQL" $ do
   it "can call simple stored functions" $ withSquareFunc $ do
@@ -69,10 +73,19 @@ spec = describe "Servant.DB.PostgreSQL" $ do
     assertEqual "mleast [10, -1, 5, 4] = -1" (Just $ Only (-1)) res1
     res2 <- runDB $ variadicProc (Variadic $ PGArray [])
     assertEqual "mleast [] = NULL" Nothing res2
-  it "handles array type" $ withArrayFuncs$ do
+  it "handles array type" $ withArrayFuncs $ do
     res1 <- runDB $ arrayProc (PGArray [10, -1, 5, 4])
     assertEqual "mleast [10, -1, 5, 4] = -1" (Just $ Only (-1)) res1
     res2 <- runDB $ arrayProc (PGArray [])
     assertEqual "mleast [] = NULL" Nothing res2
+  it "handles default values" $ withDefaultFuncs $ do
+    Only res1 <- runDB $ defaultProc (Specific 1) (Specific 1)
+    assertEqual "1+1 = 2" 2 res1
+    Only res2 <- runDB $ defaultProc (Specific 1) Default
+    assertEqual "1+0 = 1" 1 res2
+    Only res3 <- runDB $ defaultProc Default (Specific 2)
+    assertEqual "0+2 = 2" 2 res3
+    Only res4 <- runDB $ defaultProc Default Default
+    assertEqual "0+0 = 0" 0 res4
 
 

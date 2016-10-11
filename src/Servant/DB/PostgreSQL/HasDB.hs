@@ -25,6 +25,7 @@ import           GHC.TypeLits
 import           Servant.API
 import           Servant.API.DB
 import           Servant.DB.PostgreSQL.Context
+import           Servant.DB.PostgreSQL.Default
 import           Servant.DB.PostgreSQL.Variadic
 
 import           Database.PostgreSQL.Simple    as Reexport (Only (..))
@@ -119,7 +120,7 @@ instance {-# OVERLAPPABLE #-} (KnownSymbol n, ToField a, HasDB api m) => HasDB (
   deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
     where
       n = pack $ symbolVal (Proxy :: Proxy n)
-      ctx' = addQueryArgument (Just n) a ctx
+      ctx' = addQueryArgument (Just n) (ArgSimple a) ctx
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with named variadic arguments
@@ -143,7 +144,31 @@ instance {-# OVERLAPPING #-} (KnownSymbol n, ToField a, HasDB api m) => HasDB (A
   deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
     where
       n = pack $ symbolVal (Proxy :: Proxy n)
-      ctx' = addQueryVariadicArg (Just n) a ctx
+      ctx' = addQueryArgument (Just n) (ArgVariadic a) ctx
+  {-# INLINE deriveDBWithCtx #-}
+
+-- | Deriving call to DB procedure with named default arguments
+--
+-- @
+-- type API = ArgNamed "a" (Defaultable Int) :> Procedure "foo" (Only Int)
+--
+-- data MyMonad m a -- Your application monad with connection pool and logger
+-- instance HasPostgres m
+-- instance MonadLogger m
+--
+-- dbFoo :: Defaultable Int -> MyMonad (Only Int)
+-- dbFoo = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
+-- @
+--
+-- Upper example will derive the following SQL call:
+-- >>> SELECT * FROM default(DEFAULT) AS t;
+instance {-# OVERLAPPING #-} (KnownSymbol n, ToField a, HasDB api m) => HasDB (ArgNamed n (Default a) :> api) m where
+  type DB (ArgNamed n (Default a) :> api) m = Default a -> DB api m
+
+  deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
+    where
+      n = pack $ symbolVal (Proxy :: Proxy n)
+      ctx' = addQueryArgument (Just n) (ArgDefault a) ctx
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with positional arguments
@@ -166,7 +191,7 @@ instance {-# OVERLAPPABLE #-} (ToField a, HasDB api m) => HasDB (ArgPos a :> api
 
   deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
     where
-      ctx' = addQueryArgument Nothing a ctx
+      ctx' = addQueryArgument Nothing (ArgSimple a) ctx
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with positional variadic arguments
@@ -189,7 +214,30 @@ instance {-# OVERLAPPING #-} (ToField a, HasDB api m) => HasDB (ArgPos (Variadic
 
   deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
     where
-      ctx' = addQueryVariadicArg Nothing a ctx
+      ctx' = addQueryArgument Nothing (ArgVariadic a) ctx
+  {-# INLINE deriveDBWithCtx #-}
+
+-- | Deriving call to DB procedure with positional default arguments
+--
+-- @
+-- type API = ArgPos (Default Int) :> Procedure "foo" (Only Int)
+--
+-- data MyMonad m a -- Your application monad with connection pool and logger
+-- instance HasPostgres m
+-- instance MonadLogger m
+--
+-- dbFoo :: Default Int -> MyMonad (Only Int)
+-- dbFoo = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
+-- @
+--
+-- Upper example will derive the following SQL call:
+-- >>> SELECT * FROM foo(DEFAULT) AS t;
+instance {-# OVERLAPPING #-} (ToField a, HasDB api m) => HasDB (ArgPos (Default a) :> api) m where
+  type DB (ArgPos (Default a) :> api) m = Default a -> DB api m
+
+  deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
+    where
+      ctx' = addQueryArgument Nothing (ArgDefault a) ctx
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with no return type

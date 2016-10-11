@@ -11,11 +11,11 @@ Description : Query context that is used as temp storage
 Portability : Not portable
 -}
 module Servant.DB.PostgreSQL.Context(
-    QueryArg(..)
+    Argument(..)
+  , QueryArg(..)
   , QueryContext(..)
   , newQueryContext
   , addQueryArgument
-  , addQueryVariadicArg
   , queryStoredFunction
   ) where
 
@@ -27,14 +27,28 @@ import           Data.Sequence                    (Seq)
 import qualified Data.Sequence                    as S
 import           Data.Text                        (Text)
 import           Database.PostgreSQL.Query
-import           Database.PostgreSQL.Simple.Types
+import           Database.PostgreSQL.Simple.Types hiding (Default)
 import           Servant.DB.PostgreSQL.Variadic
+import           Servant.DB.PostgreSQL.Default
+import GHC.Generics
+
+-- | Captures special cases of stored function arguments
+data Argument a =
+    ArgVariadic (Variadic a) -- ^ Variadic argument has uncommon call syntax
+  | ArgDefault (Default a) -- ^ Default keyword
+  | ArgSimple a -- ^ Common case
+  deriving (Generic, Eq, Show)
 
 -- | Encapsulated argument that can be serialized into field or type checked
 --
 -- The type parameter can be 'ToField' for query generation or 'Typeable' for
 -- type checking of DB signature.
-data QueryArg (r :: * -> Constraint) = forall a . r a => QueryArg (Either (Variadic a) a)
+data QueryArg (r :: * -> Constraint) = forall a . r a => QueryArg (Argument a)
+
+-- | Check whether an argument is not specified
+isDefaultArg :: QueryArg r -> Bool
+isDefaultArg (QueryArg (ArgDefault Default)) = True
+isDefaultArg _ = False
 
 -- | Catches intermediate parameters for query
 data QueryContext (r :: * -> Constraint) = QueryContext {
@@ -57,21 +71,11 @@ newQueryContext = QueryContext {
 -- | Add new argument to query context
 addQueryArgument :: r a
   => Maybe Text -- ^ Name of argument, 'Nothing' for positional arguments
-  -> a -- ^ Value of argument
+  -> Argument a -- ^ Value of argument
   -> QueryContext r -- ^ Context
   -> QueryContext r -- ^ New context with the argument
 addQueryArgument name a ctx = ctx {
-    queryArguments = queryArguments ctx S.|> (name, QueryArg (Right a))
-  }
-
--- | Add new argument to query context
-addQueryVariadicArg :: r a
-  => Maybe Text -- ^ Name of argument, 'Nothing' for positional arguments
-  -> Variadic a -- ^ Value of argument
-  -> QueryContext r -- ^ Context
-  -> QueryContext r -- ^ New context with the argument
-addQueryVariadicArg name a ctx = ctx {
-    queryArguments = queryArguments ctx S.|> (name, QueryArg (Left a))
+    queryArguments = queryArguments ctx S.|> (name, QueryArg a)
   }
 
 -- | Helper to split positional and named arguments
@@ -105,18 +109,25 @@ queryStoredFunction name ctx =
   <> ")"
   <> (if queryVoid ctx then ";" else " as t;")
   where
-    (posed, named) = querySplitArguments ctx
+    (posed', named') = querySplitArguments ctx
+    posed = S.filter (not . isDefaultArg) posed'
+    named = S.filter (not . isDefaultArg . snd) named'
     posedBuilder =  mconcat (addCommas $ argPosedBuilder <$> toList posed)
     namedBuilder = mconcat (addCommas $ uncurry argNamedBuilder <$> toList named)
 
     addCommas = intersperse ", "
     argPosedBuilder :: QueryArg r -> SqlBuilder
     argPosedBuilder (QueryArg marg) = case marg of
-      Left (Variadic va) -> "VARIADIC " <> mkValue va
-      Right a -> mkValue a
+      ArgVariadic (Variadic va) -> "VARIADIC " <> mkValue va
+      ArgDefault a -> case a of
+        Default -> "" -- already handled
+        Specific a -> mkValue a
+      ArgSimple a -> mkValue a
 
     argNamedBuilder :: Text -> QueryArg r -> SqlBuilder
     argNamedBuilder aname (QueryArg marg) = case marg of
-      Left (Variadic a) -> "VARIADIC "
-              <> toSqlBuilder (Identifier aname) <> " => " <> mkValue a
-      Right a -> toSqlBuilder (Identifier aname) <> " => " <> mkValue a
+      ArgVariadic (Variadic a) -> "VARIADIC " <> toSqlBuilder (Identifier aname) <> " => " <> mkValue a
+      ArgDefault a -> case a of
+        Default -> "" -- already handled
+        Specific a -> toSqlBuilder (Identifier aname) <> " => " <> mkValue a
+      ArgSimple a -> toSqlBuilder (Identifier aname) <> " => " <> mkValue a

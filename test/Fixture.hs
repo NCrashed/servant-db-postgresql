@@ -11,6 +11,7 @@ module Fixture(
   , VoidAPI
   , VariadicAPI
   , ArrayAPI
+  , DefaultAPI
   , withSquareFunc
   , withTestSchema
   , withSquareSchema
@@ -20,6 +21,7 @@ module Fixture(
   , withVoid
   , withVariadic
   , withArrayFuncs
+  , withDefaultFuncs
   , module Reexport
   ) where
 
@@ -29,6 +31,7 @@ import           Database.PostgreSQL.Query
 import           DB
 import           Servant.API.DB
 import           Servant.DB.PostgreSQL
+import           Servant.DB.PostgreSQL.Default
 
 import           Fixture.User              as Reexport
 
@@ -45,6 +48,7 @@ type OrderedAPI2 = ArgPos Int :> ArgNamed "a" Int :> ArgPos Int
 type VoidAPI = Procedure "void" ()
 type VariadicAPI = ArgNamed "arr" (Variadic Int) :> Procedure "mleast" (Maybe (Only Int))
 type ArrayAPI = ArgPos (PGArray Int) :> Procedure "mleast" (Maybe (Only Int))
+type DefaultAPI = ArgNamed "a" (Default Int) :> ArgPos (Default Int) :> Procedure "foo" (Only Int)
 
 -- | Helper to make cleanable migration
 withMigration :: PostgresM () -> PostgresM () -> IO c -> IO c
@@ -211,4 +215,21 @@ arrayFuncs = void $ pgExecute [sqlExp|
 arrayFuncsDrop :: PostgresM ()
 arrayFuncsDrop = void $ pgExecute [sqlExp|
   DROP FUNCTION IF EXISTS "mleast"(int[]);
+  |]
+
+withDefaultFuncs :: IO a -> IO a
+withDefaultFuncs = withMigration defaultFuncs defaultFuncsDrop
+
+defaultFuncs :: PostgresM ()
+defaultFuncs = void $ pgExecute [sqlExp|
+  CREATE OR REPLACE FUNCTION "foo"(int default 0, "a" int default 0) RETURNS int AS $$
+  BEGIN
+    RETURN $1+a;
+  END;
+  $$ LANGUAGE plpgsql;
+  |]
+
+defaultFuncsDrop :: PostgresM ()
+defaultFuncsDrop = void $ pgExecute [sqlExp|
+  DROP FUNCTION IF EXISTS "foo"(int, "a" int);
   |]

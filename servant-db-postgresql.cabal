@@ -20,6 +20,7 @@ library
     Servant.DB.PostgreSQL
     Servant.DB.PostgreSQL.Composite
     Servant.DB.PostgreSQL.Context
+    Servant.DB.PostgreSQL.Default
     Servant.DB.PostgreSQL.HasDB
     Servant.DB.PostgreSQL.Variadic
   -- other-modules:
