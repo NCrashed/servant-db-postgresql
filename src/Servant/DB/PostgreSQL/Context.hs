@@ -76,7 +76,8 @@ queryStoredFunction :: Text -- ^ Name of function
 queryStoredFunction name ctx = "SELECT * FROM"
   <> toSqlBuilder (QualifiedIdentifier (querySchema ctx) name)
   <> "("
-  <> (if S.null posed then mempty else posedBuilder)
+  <> (if S.null posed then mempty
+      else posedBuilder <> (if S.null named then mempty else ", "))
   <> (if S.null named then mempty else namedBuilder)
   <> ") as t;"
   where

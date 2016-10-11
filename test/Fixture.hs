@@ -1,33 +1,27 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Fixture(
-    migrateFixture
-  , deleteFixture
+    withSquareFunc
+  , withTestSchema
+  , withSquareSchema
+  , withSuccAndPred
+  , withUserFuncs
+  , withOrderedFuncs
   , module Reexport
   ) where
 
 import           Control.Monad
+import           Control.Exception
 import           Database.PostgreSQL.Query
 import           DB
 
-import           Fixture.User              as Reexport
+import           Fixture.User as Reexport
 
--- | Migrate all data that is needed for tests
-migrateFixture :: IO ()
-migrateFixture = runDB $ do
-  squareFunction
-  testSchema
-  squareFunctionSchema
-  succAndPredFunc
-  userFuncs
+-- | Helper to make cleanable migration
+withMigration :: PostgresM () -> PostgresM () -> IO c -> IO c
+withMigration before after = bracket_ (runDB before) (runDB after)
 
--- | Delete fixture from DB
-deleteFixture :: IO ()
-deleteFixture = runDB $ do
-  squareFunctionDrop
-  squareFunctionSchemaDrop
-  testSchemaDrop
-  succAndPredFuncDrop
-  userFuncsDrop
+withSquareFunc :: IO a -> IO a
+withSquareFunc = withMigration squareFunction squareFunctionDrop
 
 -- | Stored function for squaring input
 squareFunction :: PostgresM ()
@@ -45,6 +39,9 @@ squareFunctionDrop = void $ pgExecute [sqlExp|
   DROP FUNCTION IF EXISTS square1(a integer);
   |]
 
+withTestSchema :: IO a -> IO a
+withTestSchema = withMigration testSchema testSchemaDrop
+
 -- | Create test schema
 testSchema :: PostgresM ()
 testSchema = void $ pgExecute [sqlExp|CREATE SCHEMA IF NOT EXISTS test;|]
@@ -52,6 +49,9 @@ testSchema = void $ pgExecute [sqlExp|CREATE SCHEMA IF NOT EXISTS test;|]
 -- | Delete test schema
 testSchemaDrop :: PostgresM ()
 testSchemaDrop = void $ pgExecute [sqlExp|DROP SCHEMA test;|]
+
+withSquareSchema :: IO a -> IO a
+withSquareSchema = withMigration squareFunctionSchema squareFunctionSchemaDrop
 
 -- | Stored function for squaring input
 squareFunctionSchema :: PostgresM ()
@@ -69,6 +69,9 @@ squareFunctionSchemaDrop = void $ pgExecute [sqlExp|
   DROP FUNCTION IF EXISTS test.square2(b integer);
   |]
 
+withSuccAndPred :: IO a -> IO a
+withSuccAndPred = withMigration succAndPredFunc succAndPredFuncDrop
+
 succAndPredFunc :: PostgresM ()
 succAndPredFunc = void $ pgExecute [sqlExp|
   CREATE OR REPLACE FUNCTION "succAndPred"(n integer) RETURNS TABLE (a integer, b integer) AS $$
@@ -80,6 +83,9 @@ succAndPredFuncDrop :: PostgresM ()
 succAndPredFuncDrop = void $ pgExecute [sqlExp|
   DROP FUNCTION IF EXISTS "succAndPred"(n integer);
   |]
+
+withUserFuncs :: IO a -> IO a
+withUserFuncs = withMigration userFuncs userFuncsDrop
 
 userFuncs :: PostgresM ()
 userFuncs = void $ pgExecute [sqlExp|
@@ -113,3 +119,20 @@ userFuncsDrop = void $ pgExecute [sqlExp|
   DROP TYPE IF EXISTS "userCreate" CASCADE;
   DROP TABLE IF EXISTS "users";
   |]
+
+withOrderedFuncs :: IO a -> IO a
+withOrderedFuncs = withMigration orderedFuncs orderedFuncsDrop
+
+orderedFuncs :: PostgresM ()
+orderedFuncs = void $ pgExecute [sqlExp|
+  CREATE OR REPLACE FUNCTION "ordered"(integer, integer, a integer) RETURNS integer AS $$
+  BEGIN
+    RETURN $1 + $2*2 + a*3;
+  END;
+  $$ LANGUAGE plpgsql;
+  |]
+
+orderedFuncsDrop :: PostgresM ()
+orderedFuncsDrop = void $ pgExecute [sqlExp|
+  DROP FUNCTION IF EXISTS "ordered"(integer, integer, a integer);
+ |]
