@@ -1,5 +1,3 @@
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE TypeOperators #-}
 module Servant.PostgreSQLSpec(spec) where
 
 import           Data.Proxy
@@ -14,18 +12,6 @@ import           Test.QuickCheck
 
 import           Servant.API.DB
 import           Servant.DB.PostgreSQL
-
-type SquareAPI = ArgNamed "a" Int :> Procedure "square1" (Only Int)
-type SquareSchemaAPI = "test" :> ArgNamed "b" Int :> Procedure "square2" (Only Int)
-type SuccAndPredAPI = ArgNamed "n" Int :> Procedure "succAndPred" (Int, Int)
-type UserAPI =
-       ArgNamed "u" (Composite UserCreate) :> Procedure "postUser" (Only Int)
-  :<|> Procedure "getUsers" [User]
-type OrderedAPI1 = ArgPos Int :> ArgPos Int :> ArgNamed "a" Int
-  :> Procedure "ordered" (Only Int)
-type OrderedAPI2 = ArgPos Int :> ArgNamed "a" Int :> ArgPos Int
-  :> Procedure "ordered" (Only Int)
-type VoidAPI = Procedure "void" ()
 
 square :: Int -> PostgresM (Only Int)
 square = deriveDB (Proxy :: Proxy SquareAPI) (Proxy :: Proxy PostgresM)

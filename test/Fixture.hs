@@ -1,6 +1,15 @@
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE DataKinds     #-}
+{-# LANGUAGE QuasiQuotes   #-}
+{-# LANGUAGE TypeOperators #-}
 module Fixture(
-    withSquareFunc
+    SquareAPI
+  , SquareSchemaAPI
+  , SuccAndPredAPI
+  , UserAPI
+  , OrderedAPI1
+  , OrderedAPI2
+  , VoidAPI
+  , withSquareFunc
   , withTestSchema
   , withSquareSchema
   , withSuccAndPred
@@ -10,12 +19,26 @@ module Fixture(
   , module Reexport
   ) where
 
-import           Control.Monad
 import           Control.Exception
+import           Control.Monad
 import           Database.PostgreSQL.Query
 import           DB
+import           Servant.API.DB
+import           Servant.DB.PostgreSQL
 
-import           Fixture.User as Reexport
+import           Fixture.User              as Reexport
+
+type SquareAPI = ArgNamed "a" Int :> Procedure "square1" (Only Int)
+type SquareSchemaAPI = "test" :> ArgNamed "b" Int :> Procedure "square2" (Only Int)
+type SuccAndPredAPI = ArgNamed "n" Int :> Procedure "succAndPred" (Int, Int)
+type UserAPI =
+       ArgNamed "u" (Composite UserCreate) :> Procedure "postUser" (Only Int)
+  :<|> Procedure "getUsers" [User]
+type OrderedAPI1 = ArgPos Int :> ArgPos Int :> ArgNamed "a" Int
+  :> Procedure "ordered" (Only Int)
+type OrderedAPI2 = ArgPos Int :> ArgNamed "a" Int :> ArgPos Int
+  :> Procedure "ordered" (Only Int)
+type VoidAPI = Procedure "void" ()
 
 -- | Helper to make cleanable migration
 withMigration :: PostgresM () -> PostgresM () -> IO c -> IO c
