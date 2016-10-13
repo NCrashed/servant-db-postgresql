@@ -6,14 +6,14 @@ on [postgresql-query](http://hackage.haskell.org/package/postgresql-query) packa
 
 How to use:
 
-1. Define your instances of `MonadLogger` and `HasPostgres` for your app
+* Define your instances of `MonadLogger` and `HasPostgres` for your app
 monad:
 ``` haskell
 newtype PostgresM a = PostgresM { runPostgresM :: PgMonadT (LoggingT IO) a }
   deriving (Functor, HasPostgres, MonadLogger, Monad, Applicative, MonadBase IO)
 ```
 
-2. Define type level API:
+* Define type level API:
 ``` haskell
 type UserId = Int
 
@@ -45,7 +45,7 @@ type UserAPI =
   :<|> Procedure "getUsers" [User]
 ```
 
-3. Derive client functions from the API:
+* Derive client functions from the API:
 
 ``` haskell
 postUser :: Composite RegisterUser -> PostgresM (Only Int)
@@ -58,7 +58,7 @@ getUsers :: PostgresM [User]
   :<|> getUsers) = deriveDB (Proxy :: Proxy UserAPI) (Proxy :: Proxy PostgresM)
 ```
 
-4. Use them. The full example you can view at [example01/Main.hs](https://github.com/NCrashed/servant-db-postgresql/tree/master/example01/Main.hs) module. 
+* Use them. The full example you can view at [example01/Main.hs](https://github.com/NCrashed/servant-db-postgresql/tree/master/example01/Main.hs) module. 
 And to compile it run the:
 ```
 stack build --flag servant-db-postgresql:examples
