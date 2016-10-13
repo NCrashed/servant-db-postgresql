@@ -3,13 +3,13 @@ module Servant.PostgreSQLSpec(spec) where
 import           Data.Proxy
 import           DB
 import           Fixture
-import           Test.Hspec            hiding (Arg)
+import           Test.Hspec                    hiding (Arg)
 import           Test.HUnit
 import           Test.QuickCheck
 
 import           Servant.API.DB
-import           Servant.API.DB.Default
 import           Servant.DB.PostgreSQL
+import           Servant.DB.PostgreSQL.Default
 
 square :: Int -> PostgresM (Only Int)
 square = deriveDB (Proxy :: Proxy SquareAPI) (Proxy :: Proxy PostgresM)
@@ -87,13 +87,13 @@ spec = describe "Servant.DB.PostgreSQL" $ do
     res2 <- runDB $ arrayProc (PGArray [])
     assertEqual "mleast [] = NULL" Nothing res2
   it "handles default values" $ withDefaultFuncs $ do
-    Only res1 <- runDB $ defaultProc (Specific 1) (Specific 1)
+    Only res1 <- runDB $ defaultProc (Default $ Just 1) (Default $ Just 1)
     assertEqual "1+1 = 2" 2 res1
-    Only res2 <- runDB $ defaultProc (Specific 1) Default
+    Only res2 <- runDB $ defaultProc (Default $ Just 1) (Default Nothing)
     assertEqual "1+0 = 1" 1 res2
-    Only res3 <- runDB $ defaultProc Default (Specific 2)
+    Only res3 <- runDB $ defaultProc (Default Nothing) (Default $ Just 2)
     assertEqual "0+2 = 2" 2 res3
-    Only res4 <- runDB $ defaultProc Default Default
+    Only res4 <- runDB $ defaultProc (Default Nothing) (Default Nothing)
     assertEqual "0+0 = 0" 0 res4
 
 

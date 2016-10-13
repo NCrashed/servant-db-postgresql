@@ -28,14 +28,13 @@ import qualified Data.Sequence                    as S
 import           Data.Text                        (Text)
 import           Database.PostgreSQL.Query
 import           Database.PostgreSQL.Simple.Types hiding (Default)
-import           Servant.API.DB.Default
+import           GHC.Generics
 import           Servant.DB.PostgreSQL.Variadic
-import GHC.Generics
 
 -- | Captures special cases of stored function arguments
 data Argument a =
     ArgVariadic (Variadic a) -- ^ Variadic argument has uncommon call syntax
-  | ArgDefault (Default a) -- ^ Default keyword
+  | ArgDefault (Maybe a) -- ^ Default keyword
   | ArgSimple a -- ^ Common case
   deriving (Generic, Eq, Show)
 
@@ -47,8 +46,8 @@ data QueryArg (r :: * -> Constraint) = forall a . r a => QueryArg (Argument a)
 
 -- | Check whether an argument is not specified
 isDefaultArg :: QueryArg r -> Bool
-isDefaultArg (QueryArg (ArgDefault Default)) = True
-isDefaultArg _ = False
+isDefaultArg (QueryArg (ArgDefault Nothing)) = True
+isDefaultArg _                               = False
 
 -- | Catches intermediate parameters for query
 data QueryContext (r :: * -> Constraint) = QueryContext {
@@ -120,14 +119,14 @@ queryStoredFunction name ctx =
     argPosedBuilder (QueryArg marg) = case marg of
       ArgVariadic (Variadic va) -> "VARIADIC " <> mkValue va
       ArgDefault da -> case da of
-        Default -> "" -- already handled
-        Specific a -> mkValue a
+        Nothing -> "" -- already handled
+        Just a  -> mkValue a
       ArgSimple a -> mkValue a
 
     argNamedBuilder :: Text -> QueryArg r -> SqlBuilder
     argNamedBuilder aname (QueryArg marg) = case marg of
       ArgVariadic (Variadic a) -> "VARIADIC " <> toSqlBuilder (Identifier aname) <> " => " <> mkValue a
       ArgDefault da -> case da of
-        Default -> "" -- already handled
-        Specific a -> toSqlBuilder (Identifier aname) <> " => " <> mkValue a
+        Nothing -> "" -- already handled
+        Just a  -> toSqlBuilder (Identifier aname) <> " => " <> mkValue a
       ArgSimple a -> toSqlBuilder (Identifier aname) <> " => " <> mkValue a

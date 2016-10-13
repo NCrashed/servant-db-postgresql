@@ -28,8 +28,8 @@ import           Database.PostgreSQL.Simple.Types   (Null)
 import           GHC.TypeLits
 import           Servant.API
 import           Servant.API.DB
-import           Servant.API.DB.Default
 import           Servant.DB.PostgreSQL.Context
+import           Servant.DB.PostgreSQL.Default
 import           Servant.DB.PostgreSQL.Variadic
 
 import           Database.PostgreSQL.Simple         as Reexport (Only (..))
@@ -172,7 +172,7 @@ instance {-# OVERLAPPING #-} (KnownSymbol n, ToField a, HasDB api m) => HasDB (A
   deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
     where
       n = pack $ symbolVal (Proxy :: Proxy n)
-      ctx' = addQueryArgument (Just n) (ArgDefault a) ctx
+      ctx' = addQueryArgument (Just n) (ArgDefault $ unDefault a) ctx
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with positional arguments
@@ -241,7 +241,7 @@ instance {-# OVERLAPPING #-} (ToField a, HasDB api m) => HasDB (ArgPos (Default 
 
   deriveDBWithCtx _ m ctx a = deriveDBWithCtx (Proxy :: Proxy api) m ctx'
     where
-      ctx' = addQueryArgument Nothing (ArgDefault a) ctx
+      ctx' = addQueryArgument Nothing (ArgDefault $ unDefault a) ctx
   {-# INLINE deriveDBWithCtx #-}
 
 -- | Deriving call to DB procedure with no return type

@@ -40,7 +40,7 @@ packages:
 #- '../servant-db'
 - location:
     git: git@github.com:NCrashed/servant-db.git
-    commit: eaeb6eb90b82a2c55c5ffdd260da494f12d9c3da
+    commit: 57203775febca172016b04ae1c46e2703ec843c1
 
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)

@@ -30,10 +30,10 @@ import           Control.Monad
 import           Database.PostgreSQL.Query
 import           DB
 import           Servant.API.DB
-import           Servant.API.DB.Default
 import           Servant.DB.PostgreSQL
+import           Servant.DB.PostgreSQL.Default
 
-import           Fixture.User              as Reexport
+import           Fixture.User                  as Reexport
 
 type SquareAPI = ArgNamed "a" Int :> Procedure "square1" (Only Int)
 type SquareSchemaAPI = "test" :> ArgNamed "b" Int :> Procedure "square2" (Only Int)
