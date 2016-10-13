@@ -63,3 +63,32 @@ And to compile it run the:
 ```
 stack build --flag servant-db-postgresql:examples
 ```
+
+Features
+========
+
+* Call functions in schema with `:>` operator:
+``` haskell
+type API = "test" :> ArgPos Int :> Procedure "square" (Only Int)
+```
+That will call function `test.square(int)`. 
+
+* Composite types are defined with `Composite a` wrapper:
+``` haskell
+type API = ArgNamed "u" (Composite UserCreate) :> Procedure "postUser" (Only Int)
+```
+
+* Support for arrays:
+``` haskell
+type API = ArgPos (PGArray Int) :> Procedure "mleast" (Maybe (Only Int))
+```
+
+* Support for variadic arguments:
+``` haskell
+type API = ArgPos (Variadic Int) :> Procedure "mleast" (Maybe (Only Int))
+```
+
+* Support for default arguments with `newypte Default a = Default (Maybe a)`:
+``` haskell
+type API = ArgPos (Default Int) :> Procedure "foo" (Only Int)
+```
