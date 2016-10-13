@@ -119,7 +119,7 @@ queryStoredFunction name ctx =
     argPosedBuilder :: QueryArg r -> SqlBuilder
     argPosedBuilder (QueryArg marg) = case marg of
       ArgVariadic (Variadic va) -> "VARIADIC " <> mkValue va
-      ArgDefault a -> case a of
+      ArgDefault da -> case da of
         Default -> "" -- already handled
         Specific a -> mkValue a
       ArgSimple a -> mkValue a
@@ -127,7 +127,7 @@ queryStoredFunction name ctx =
     argNamedBuilder :: Text -> QueryArg r -> SqlBuilder
     argNamedBuilder aname (QueryArg marg) = case marg of
       ArgVariadic (Variadic a) -> "VARIADIC " <> toSqlBuilder (Identifier aname) <> " => " <> mkValue a
-      ArgDefault a -> case a of
+      ArgDefault da -> case da of
         Default -> "" -- already handled
         Specific a -> toSqlBuilder (Identifier aname) <> " => " <> mkValue a
       ArgSimple a -> toSqlBuilder (Identifier aname) <> " => " <> mkValue a

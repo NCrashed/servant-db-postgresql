@@ -7,10 +7,8 @@ module Servant.DB.PostgreSQL.Composite(
     Composite(..)
   ) where
 
-import qualified Data.ByteString.Char8              as BS
 import           Data.List                          (intersperse)
 import           Data.Typeable
-import           Database.PostgreSQL.Simple.FromRow
 import           Database.PostgreSQL.Simple.ToField
 import           Database.PostgreSQL.Simple.ToRow
 import           GHC.Generics

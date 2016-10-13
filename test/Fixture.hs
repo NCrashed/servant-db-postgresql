@@ -40,6 +40,8 @@ type SquareSchemaAPI = "test" :> ArgNamed "b" Int :> Procedure "square2" (Only I
 type SuccAndPredAPI = ArgNamed "n" Int :> Procedure "succAndPred" (Int, Int)
 type UserAPI =
        ArgNamed "u" (Composite UserCreate) :> Procedure "postUser" (Only Int)
+  :<|> ArgPos Int :> Procedure "getUser" (Maybe User)
+  :<|> ArgPos Int :> Procedure "deleteUser" ()
   :<|> Procedure "getUsers" [User]
 type OrderedAPI1 = ArgPos Int :> ArgPos Int :> ArgNamed "a" Int
   :> Procedure "ordered" (Only Int)
@@ -141,6 +143,14 @@ userFuncs = void $ pgExecute [sqlExp|
     RETURNING id;
   $$ LANGUAGE sql;
 
+  CREATE OR REPLACE FUNCTION "getUser"(int) RETURNS users AS $$
+    SELECT * FROM users WHERE id = $1;
+  $$ LANGUAGE sql;
+
+  CREATE OR REPLACE FUNCTION "deleteUser"(int) RETURNS void AS $$
+    DELETE FROM users WHERE id = $1;
+  $$ LANGUAGE sql;
+
   CREATE OR REPLACE FUNCTION "getUsers"() RETURNS SETOF users AS $$
     SELECT * FROM users;
   $$ LANGUAGE sql;
@@ -150,6 +160,8 @@ userFuncsDrop :: PostgresM ()
 userFuncsDrop = void $ pgExecute [sqlExp|
   DROP FUNCTION IF EXISTS "postUser"(u "userCreate");
   DROP FUNCTION IF EXISTS "getUsers"();
+  DROP FUNCTION IF EXISTS "getUser"(int);
+  DROP FUNCTION IF EXISTS "deleteUser"(int);
   DROP TYPE IF EXISTS "userCreate" CASCADE;
   DROP TABLE IF EXISTS "users";
   |]

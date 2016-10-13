@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
+{-# OPTIONS_GHC -fno-warn-orphans      #-}
 {-|
 Module      : Servant.DB.PostgreSQL.HasDB
 Description : Deriving DB client from API
@@ -16,11 +17,14 @@ module Servant.DB.PostgreSQL.HasDB(
   , module Reexport
   ) where
 
-import           Control.Monad                 (void)
+import           Control.Applicative
+import           Control.Monad                      (replicateM_)
 import           Data.Monoid
 import           Data.Proxy
-import           Data.Text                     (pack)
+import           Data.Text                          (pack)
 import           Database.PostgreSQL.Query
+import           Database.PostgreSQL.Simple.FromRow
+import           Database.PostgreSQL.Simple.Types   (Null)
 import           GHC.TypeLits
 import           Servant.API
 import           Servant.API.DB
@@ -28,7 +32,7 @@ import           Servant.API.DB.Default
 import           Servant.DB.PostgreSQL.Context
 import           Servant.DB.PostgreSQL.Variadic
 
-import           Database.PostgreSQL.Simple    as Reexport (Only (..))
+import           Database.PostgreSQL.Simple         as Reexport (Only (..))
 
 -- | Derive DB client from API
 deriveDB :: HasDB layout m
@@ -297,6 +301,46 @@ instance {-# OVERLAPPING #-} (KnownSymbol n, FromRow a, MonadPostgres m)
   type DB (Procedure n [a]) m = m [a]
 
   deriveDBWithCtx _ _ ctx = pgQuery q
+    where
+      n = pack $ symbolVal (Proxy :: Proxy n)
+      q = queryStoredFunction n ctx
+  {-# INLINE deriveDBWithCtx #-}
+
+nullRow :: RowParser Null
+nullRow = field
+
+instance FromRow a => FromRow (Maybe a) where
+  fromRow = do
+    n <- numFieldsRemaining
+    (replicateM_ n nullRow *> pure Nothing) <|> (Just <$> fromRow)
+
+-- | Deriving call to DB procedure with optional result
+--
+-- @
+-- data User -- user data
+-- instance FromRow User
+--
+-- type API = ArgPos Int :> Procedure "user" (Maybe User)
+--
+-- data MyMonad m a -- Your application monad with connection pool and logger
+-- instance HasPostgres m
+-- instance MonadLogger m
+--
+-- getUsers :: MyMonad (Maybe User)
+-- getUsers = deriveDB (Proxy :: Proxy API) (Proxy :: Proxy MyMonad)
+-- @
+--
+-- Upper example will derive the following SQL call:
+-- >>> SELECT * FROM user(?) AS t;
+instance {-# OVERLAPPING #-} (KnownSymbol n, FromRow a, MonadPostgres m)
+  => HasDB (Procedure n (Maybe a)) m where
+  type DB (Procedure n (Maybe a)) m = m (Maybe a)
+
+  deriveDBWithCtx _ _ ctx = do
+    res <- pgQuery q
+    case res of
+      x : _ -> return x
+      _     -> return Nothing
     where
       n = pack $ symbolVal (Proxy :: Proxy n)
       q = queryStoredFunction n ctx

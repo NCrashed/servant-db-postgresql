@@ -1,11 +1,8 @@
 module Servant.PostgreSQLSpec(spec) where
 
 import           Data.Proxy
-import           Data.Text             (Text)
-import           Data.Time
 import           DB
 import           Fixture
-import           GHC.Generics
 import           Test.Hspec            hiding (Arg)
 import           Test.HUnit
 import           Test.QuickCheck
@@ -24,8 +21,13 @@ succAndPred :: Int -> PostgresM (Int, Int)
 succAndPred = deriveDB (Proxy :: Proxy SuccAndPredAPI) (Proxy :: Proxy PostgresM)
 
 postUser :: Composite UserCreate -> PostgresM (Only Int)
+getUser :: Int -> PostgresM (Maybe User)
+deleteUser :: Int -> PostgresM ()
 getUsers :: PostgresM [User]
-(postUser :<|> getUsers) = deriveDB (Proxy :: Proxy UserAPI) (Proxy :: Proxy PostgresM)
+(      postUser
+  :<|> getUser
+  :<|> deleteUser
+  :<|> getUsers) = deriveDB (Proxy :: Proxy UserAPI) (Proxy :: Proxy PostgresM)
 
 ordered1 :: Int -> Int -> Int -> PostgresM (Only Int)
 ordered1 = deriveDB (Proxy :: Proxy OrderedAPI1) (Proxy :: Proxy PostgresM)
@@ -60,7 +62,13 @@ spec = describe "Servant.DB.PostgreSQL" $ do
     user <- generate arbitrary
     Only i <- runDB $ postUser $ Composite user
     users <- runDB getUsers
-    assertEqual "wrote == read" [userCreateToUser user i] users
+    let user' = userCreateToUser user i
+    assertEqual "wrote == read list" [user'] users
+    muser1 <- runDB $ getUser i
+    assertEqual "wrote == read single" (Just user') muser1
+    runDB $ deleteUser i
+    muser2 <- runDB $ getUser i
+    assertEqual "deleted cannot be read" Nothing muser2
   it "handles ordered arguments" $ withOrderedFuncs $ do
     Only b <- runDB $ ordered1 1 2 3
     assertEqual "1+2*2+3*3 = 14" 14 b
