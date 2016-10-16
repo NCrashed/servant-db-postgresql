@@ -1,3 +1,8 @@
+0.2.1.0
+=======
+
+* Make instance `FromRow => FromRow (Maybe a)` overlappable.
+
 0.2.0.1
 =======
 

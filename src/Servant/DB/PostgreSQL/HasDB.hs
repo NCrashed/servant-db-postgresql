@@ -300,7 +300,7 @@ instance {-# OVERLAPPING #-} (KnownSymbol n, FromRow a, MonadPostgres m)
 nullRow :: RowParser Null
 nullRow = field
 
-instance FromRow a => FromRow (Maybe a) where
+instance {-# OVERLAPPABLE #-} FromRow a => FromRow (Maybe a) where
   fromRow = do
     n <- numFieldsRemaining
     (replicateM_ n nullRow *> pure Nothing) <|> (Just <$> fromRow)

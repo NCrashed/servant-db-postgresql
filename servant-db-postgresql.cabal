@@ -1,5 +1,5 @@
 name:                 servant-db-postgresql
-version:              0.2.0.1
+version:              0.2.1.0
 synopsis:             Derive a postgres client to database API specified by servant-db
 -- description:
 license:              BSD3
