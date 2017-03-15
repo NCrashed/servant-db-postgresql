@@ -1,3 +1,8 @@
+0.2.2.0
+=======
+
+* Push version for `postgresql-query`.
+
 0.2.1.0
 =======
 
